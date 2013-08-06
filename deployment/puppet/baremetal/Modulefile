@@ -1,0 +1,13 @@
+name    'baremetal'
+version '0.1.0'
+source  'git://github.com/Mirantis/fuel'
+author  'Mirantis'
+license 'Apache'
+summary 'Baremetal Puppet Module'
+description 'Openstack Baremetal module.'
+project_page 'http://fuel.mirantis.com'
+
+dependency 'ripienaar/concat', '>= 0.1.0'
+dependency 'puppetlabs/keystone', '>= 0.1.0'
+dependency 'puppetlabs/mysql', '>= 0.3.0'
+dependency 'puppetlabs/stdlib', '>= 2.3.0'

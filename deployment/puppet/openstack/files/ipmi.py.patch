@@ -1,0 +1,20 @@
+--- ipmi.py	2013-08-02 12:04:51.791631554 +0000
++++ ipmi.py.new	2013-08-02 12:09:56.922577901 +0000
+@@ -161,7 +161,7 @@
+ 
+         self.retries = 0
+         timer = utils.FixedIntervalLoopingCall(_wait_for_power_on)
+-        timer.start(interval=0.5).wait()
++        timer.start(interval=5).wait()
+ 
+     def _power_off(self):
+         """Turn the power to this node OFF."""
+@@ -183,7 +183,7 @@
+ 
+         self.retries = 0
+         timer = utils.FixedIntervalLoopingCall(_wait_for_power_off)
+-        timer.start(interval=0.5).wait()
++        timer.start(interval=5).wait()
+ 
+     def _set_pxe_for_next_boot(self):
+         try:
