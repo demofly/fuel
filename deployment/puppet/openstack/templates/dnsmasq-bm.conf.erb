@@ -1,0 +1,10 @@
+port=0
+enable-tftp
+tftp-root=/tftpboot
+dhcp-boot=pxelinux.0
+bind-interfaces
+interface=<%= baremetal_dnsmasq_bind_iface %>
+dhcp-range=10.99.0.2,10.99.0.22,30m
+log-facility=/var/log/dnsmasq.log
+dhcp-ignore=tag:!known
+dhcp-hostsfile=/etc/dnsmasq-bm-hosts.conf
