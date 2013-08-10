@@ -21,10 +21,11 @@ class openstack::cinder(
   $iscsi_bind_host        = '0.0.0.0',
   $use_syslog             = false,
   $syslog_log_facility    = 'LOCAL3',
-  $syslog_log_level = 'WARNING',
+  $syslog_log_level       = 'WARNING',
   $cinder_rate_limits     = undef,
-  $verbose          = 'False',
-  $debug             = 'False',
+  $verbose                = 'False',
+  $debug                  = 'False',
+  $multibackend           = {},
 ) {
   include cinder::params
   #  if ($purge_cinder_config) {
@@ -84,6 +85,7 @@ class openstack::cinder(
     class { 'cinder::volume':
       package_ensure => $::openstack_version['cinder'],
       enabled        => true,
+      multibackend   => $multibackend,
     }
     class { 'cinder::volume::iscsi':
       iscsi_ip_address => $iscsi_bind_host,

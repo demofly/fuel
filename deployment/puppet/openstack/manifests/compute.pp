@@ -110,6 +110,8 @@ class openstack::compute (
   $cinder_db_user                = 'cinder',
   $cinder_db_dbname              = 'cinder',
   $cinder_iscsi_bind_addr        = false,
+  $cinder_multibackend           = {},
+  
   $db_host                       = '127.0.0.1',
   $use_syslog                    = false,
   $syslog_log_facility           = 'LOCAL6',
@@ -193,7 +195,7 @@ class openstack::compute (
     $enabled_apis = 'metadata'
     package {'python-cinderclient': ensure => present}
     if $cinder and $manage_volumes {
-    class {'openstack::cinder':
+      class {'openstack::cinder':
         sql_connection       => "mysql://${cinder_db_user}:${cinder_db_password}@${db_host}/${cinder_db_dbname}?charset=utf8",
         rabbit_password      => $rabbit_password,
         rabbit_host          => false,
@@ -214,7 +216,8 @@ class openstack::compute (
         syslog_log_level     => $syslog_log_level,
         cinder_rate_limits   => $cinder_rate_limits,
         rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
-    }
+        multibackend         => $cinder_multibackend,
+      }
     }
 
 

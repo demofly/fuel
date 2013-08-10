@@ -145,6 +145,7 @@ class openstack::controller (
   $cinder_db_dbname        = 'cinder',
   $cinder_iscsi_bind_addr  = false,
   $cinder_volume_group     = 'cinder-volumes',
+  $cinder_multibackend     = {},
   #
   $quantum                 = false,
   $quantum_user_password   = 'quantum_pass',
@@ -388,6 +389,7 @@ class openstack::controller (
         syslog_log_level     => $syslog_log_level,
         cinder_rate_limits   => $cinder_rate_limits,
         rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+        multibackend         => $cinder_multibackend,
       } # end class
     } else { # defined
       if $manage_volumes {

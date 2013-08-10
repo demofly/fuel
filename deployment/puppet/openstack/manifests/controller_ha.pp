@@ -126,6 +126,7 @@ class openstack::controller_ha (
    $cinder_volume_group     = 'cinder-volumes',
    $cinder_user_password    = 'cinder_user_pass',
    $cinder_db_password      = 'cinder_db_pass',
+   $cinder_multibackend     = {},
    $rabbit_node_ip_address  = $internal_address,
    $horizon_use_ssl         = false,
    $quantum_network_node    = false,
@@ -307,6 +308,7 @@ class openstack::controller_ha (
       manage_volumes          => $manage_volumes,
       nv_physical_volume      => $nv_physical_volume,
       cinder_volume_group     => $cinder_volume_group,
+      cinder_multibackend     => $cinder_multibackend,
       # turn on SWIFT_ENABLED option for Horizon dashboard
       swift                   => $glance_backend ? { 'swift' => true, default => false },
       use_syslog              => $use_syslog,

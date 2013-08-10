@@ -29,6 +29,7 @@ class openstack::swift::storage_node (
   $cinder_db_dbname       = 'cinder',
   $cinder_iscsi_bind_addr = false,
   $cinder_rate_limits     = false,
+  $cinder_multibackend    = {},
   $db_host                = '127.0.0.1',
   $service_endpoint       = '127.0.0.1',
   $use_syslog             = false,
@@ -100,6 +101,7 @@ class openstack::swift::storage_node (
         syslog_log_level     => $syslog_log_level,
         cinder_rate_limits   => $cinder_rate_limits,
         rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+        multibackend         => $cinder_multibackend,
       }
     }
   }

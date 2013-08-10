@@ -1,7 +1,39 @@
 # $volume_name_template = volume-%s
+#
+# must be used via openstack::cinder only
+#
+#   class { 'cinder::volume':
+#     multibackend => { 
+#       'EMC_VNX_7500_North' => {
+#         volume_driver        => 'cinder.volume.emc.EMCISCSIDriver',
+#         cinder_emc_config_file_template => 'cinder/cinder_emc_config.xml.erb',
+#         iscsi_target_prefix  => "iqn.2001-07.com.vnx",
+#         iscsi_ip_address     => '7.7.7.7',
+#         xml_storage_type     => 'super_storage',
+#         xml_ecom_server_ip   => '2.2.2.2',
+#         xml_ecom_server_port => '22222',
+#         xml_masking_view     => 'openstack1',
+#         xml_user_name        => 'storage_admin',
+#         xml_user_password    => 'storage_password',
+#       },
+#       'EMC_VNX_7500_South' => {
+#         volume_driver        => 'cinder.volume.emc.EMCISCSIDriver',
+#         iscsi_target_prefix  => "iqn.2001-07.com.vnx",
+#         iscsi_ip_address     => '7.7.7.8',
+#         xml_storage_type     => 'super_storage',
+#         xml_ecom_server_ip   => '2.2.2.3',
+#         xml_ecom_server_port => '22222',
+#         xml_masking_view     => 'openstack2',
+#         xml_user_name        => 'storage_admin',
+#         xml_user_password    => 'storage_password',
+#       }
+#     }
+#   }
+
 class cinder::volume (
   $package_ensure = 'latest',
-  $enabled        = true
+  $enabled        = true,
+  $multibackend   = {},
 ) {
 
   include cinder::params
@@ -47,5 +79,36 @@ class cinder::volume (
     require   => Package[$volume_package],
     subscribe => File[$::cinder::params::cinder_conf],
   }
+
+  # A multibacked feature implementation is below:
+
+  $cinder_backends = keys( $multibackend )
+
+  if !empty( $cinder_backends ) {
+    cinder_config { 'DEFAULT/enabled_backends':
+      value => join( $cinder_backends, ',' )
+    }
+  }
+
+  define cinder_backend {
+    $backend_options = $multibackend[ $title ]
+
+    case $backend_options[ 'volume_driver' ] {
+      default: {
+      }
+
+      'cinder.volume.emc.EMCISCSIDriver': {
+        cinder::volume::emc { $title: backend_options => $backend_options }
+      }
+
+#     The sample below to understand how to add a support of backends with a different driver:
+#     'cinder_YET_another_Driver': {
+#       cinder::volume::YET_another_Driver { $title: backend_options => $backend_options }
+#     }
+
+    }
+  }
+
+  cinder_backend { $cinder_backends: }
 
 }
