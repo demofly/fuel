@@ -20,6 +20,7 @@ class horizon::params {
       $ssl_cert_file             = '/etc/pki/tls/certs/localhost.crt'
       $ssl_key_file              = '/etc/pki/tls/private/localhost.key'
       $ssl_cert_type             = 'crt'
+      $horizon_additional_packages = ['nodejs', 'nodejs-less']
     }
     'Debian': {
       $http_service              = 'apache2'
