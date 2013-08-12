@@ -5,7 +5,7 @@
 #   class { 'cinder::volume':
 #     multibackend => { 
 #       'EMC_VNX_7500_North' => {
-#         volume_driver        => 'cinder.volume.emc.EMCISCSIDriver',
+#         volume_driver        => 'cinder.volume.drivers.emc.emc_smis_iscsi.EMCSMISISCSIDriver',
 #         cinder_emc_config_file_template => 'cinder/cinder_emc_config.xml.erb',
 #         iscsi_target_prefix  => "iqn.2001-07.com.vnx",
 #         iscsi_ip_address     => '7.7.7.7',
@@ -17,7 +17,7 @@
 #         xml_user_password    => 'storage_password',
 #       },
 #       'EMC_VNX_7500_South' => {
-#         volume_driver        => 'cinder.volume.emc.EMCISCSIDriver',
+#         volume_driver        => 'cinder.volume.drivers.emc.emc_smis_iscsi.EMCSMISISCSIDriver',
 #         iscsi_target_prefix  => "iqn.2001-07.com.vnx",
 #         iscsi_ip_address     => '7.7.7.8',
 #         xml_storage_type     => 'super_storage',
@@ -96,7 +96,8 @@ class cinder::volume (
     case $backend_options[ 'volume_driver' ] {
       default: {
       }
-
+      
+      'cinder.volume.drivers.emc.emc_smis_iscsi.EMCSMISISCSIDriver',
       'cinder.volume.emc.EMCISCSIDriver': {
         cinder::volume::emc { $title: backend_options => $backend_options }
       }

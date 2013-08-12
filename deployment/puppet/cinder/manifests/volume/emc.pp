@@ -112,7 +112,7 @@ define cinder::volume::emc (
     group => 'root',
   } ->
   cinder_config {
-    "${backend_name}/volume_driver":                value => 'cinder.volume.emc.EMCISCSIDriver';
+    "${backend_name}/volume_driver":                value => 'cinder.volume.drivers.emc.emc_smis_iscsi.EMCSMISISCSIDriver';
     "${backend_name}/iscsi_target_prefix":          value => $iscsi_target_prefix;
     "${backend_name}/iscsi_ip_address":             value => $iscsi_ip_address;
     "${backend_name}/cinder_emc_config_file_path":  value => $cinder_emc_config_file_path;
