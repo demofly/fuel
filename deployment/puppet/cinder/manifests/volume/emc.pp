@@ -35,7 +35,7 @@ define cinder::volume::emc (
 #  include cinder::params
 
   $backend_name = $title
-  $cinder_emc_config_file_path = "/etc/cinder/cinder_emc_config_${backend_name}.xml"
+  $cinder_emc_config_file = "/etc/cinder/cinder_emc_config_${backend_name}.xml"
 
   # Loading defaults, if not defined in $backend_options:
 
@@ -98,13 +98,23 @@ define cinder::volume::emc (
     default => 'pywbem'
   }
   
+  case $::osfamily ? {
+    RedHat: {
+      if !defined( Package[ 'iscsi-initiator-utils' ] ) {
+        package { 'iscsi-initiator-utils':
+          ensure => present,
+        }
+      }
+    }
+  }
+  
   if !defined( Package[ $pkg_pywbem ] ) {
     package { $pkg_pywbem:
       ensure => present,
     }
   }
   
-  file { $cinder_emc_config_file_path:
+  file { $cinder_emc_config_file:
     ensure => present,
     content => template( $cinder_emc_config_file_template ),
     mode => 644,
@@ -115,7 +125,6 @@ define cinder::volume::emc (
     "${backend_name}/volume_driver":                value => 'cinder.volume.drivers.emc.emc_smis_iscsi.EMCSMISISCSIDriver';
     "${backend_name}/iscsi_target_prefix":          value => $iscsi_target_prefix;
     "${backend_name}/iscsi_ip_address":             value => $iscsi_ip_address;
-    "${backend_name}/cinder_emc_config_file_path":  value => $cinder_emc_config_file_path;
+    "${backend_name}/cinder_emc_config_file":       value => $cinder_emc_config_file;
   }
-  
 }
