@@ -48,12 +48,14 @@ define mysql::db (
     provider => 'mysql',
     require  => Class['mysql::server'],
   }
-
-  database_user { "${user}@${host}":
-    ensure        => present,
-    password_hash => mysql_password($password),
-    provider      => 'mysql',
-    require       => Database[$name],
+  
+  if !defined( Database_user["${user}@${host}"] ) {
+    database_user { "${user}@${host}":
+      ensure        => present,
+      password_hash => mysql_password($password),
+      provider      => 'mysql',
+      require       => Database[$name],
+    }
   }
 
   database_grant { "${user}@${host}/${name}":

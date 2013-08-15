@@ -145,7 +145,7 @@ class openstack::controller_ha (
     $global_options   = $haproxy::params::global_options
     $defaults_options = $haproxy::params::defaults_options
 
-    Class['cluster::haproxy'] -> Anchor['haproxy_done']
+    Class['::cluster::haproxy'] -> Anchor['haproxy_done']
 
     concat { '/etc/haproxy/haproxy.cfg':
       owner   => '0',

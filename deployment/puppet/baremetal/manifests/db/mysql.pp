@@ -9,12 +9,15 @@ class baremetal::db::mysql(
   $host          = '127.0.0.1',
   $allowed_hosts = undef,
   $charset       = 'latin1',
-  $cluster_id    = 'localzone'
+  $cluster_id    = 'localzone',
+  $db_sync_command   = 'nova-baremetal-manage db sync',
 ) {
 
+  include baremetal::params
+
   Class['mysql::server']     -> Class['baremetal::db::mysql']
-  Class['baremetal::db::mysql'] -> Exec<| title == 'baremetal-manage db sync' |>
-  Database[$dbname]          ~> Exec<| title == 'baremetal-manage db sync' |>
+  Class['baremetal::db::mysql'] ~> Exec<| title == $db_sync_command |>
+  Database[$dbname]          ~> Exec<| title == $db_sync_command |>
 
   require 'mysql::python'
 

@@ -1,7 +1,7 @@
 #
 # == Class: openstack::compute_bm
 #
-# Manifest to install/configure nova-compute with baremetal provisioning function
+# Manifest to install/configure nova-compute with baremetal provisioning service
 #
 # === Parameters
 #
@@ -36,12 +36,16 @@
 #    Defaults to false. False indicates that a vnc proxy should not be configured.
 #  [vnc_enabled] Rather vnc console should be enabled.
 #    Optional. Defaults to 'true',
-#  [verbose] Rather components should log verbosely.
-#    Optional. Defaults to false.
+# [verbose] Rather to print more verbose (INFO+) output. If non verbose and non debug, would give syslog_log_level (default is WARNING) output. Optional. Defaults to false.
+# [debug] Rather to print even more verbose (DEBUG+) output. If true, would ignore verbose option. Optional. Defaults to false.
 #  [manage_volumes] Rather nova-volume should be enabled on this compute node.
 #    Optional. Defaults to false.
 #  [nova_volumes] Name of volume group in which nova-volume will create logical volumes.
 #    Optional. Defaults to nova-volumes.
+# [use_syslog] Rather or not service should log to syslog. Optional.
+# [syslog_log_facility] Facility for syslog, if used. Optional. Note: duplicating conf option 
+#       wouldn't have been used, but more powerfull rsyslog features managed via conf template instead
+# [syslog_log_level] logging level for non verbose and non debug mode. Optional.
 #
 # class { 'openstack::nova::compute_bm':
 #   internal_address   => '192.168.2.2',
@@ -110,28 +114,35 @@ class openstack::compute_bm (
   $tenant_network_type           = 'gre',
   $segment_range                 = '1:4094',
   # nova compute configuration parameters
-  $verbose             = false,
-  $service_endpoint    = '127.0.0.1',
-  $ssh_private_key     = undef,
-  $cache_server_ip     = ['127.0.0.1'],
-  $cache_server_port   = '11211',
-  $ssh_public_key      = undef,
+  $verbose                       = false,
+  $debug               = false,
+  $service_endpoint              = '127.0.0.1',
+  $ssh_private_key               = undef,
+  $cache_server_ip               = ['127.0.0.1'],
+  $cache_server_port             = '11211',
+  $ssh_public_key                = undef,
   # if the cinder management components should be installed
-  $manage_volumes          = false,
-  $nv_physical_volume      = undef,
-  $cinder_volume_group     = 'cinder-volumes',
-  $cinder                  = true,
-  $cinder_user_password    = 'cinder_user_pass',
-  $cinder_db_password      = 'cinder_db_pass',
-  $cinder_db_user          = 'cinder',
-  $cinder_db_dbname        = 'cinder',
-  $cinder_iscsi_bind_addr  = false,
-  $db_host                 = '127.0.0.1',
-  $use_syslog              = false,
-  $nova_rate_limits = undef,
-  $cinder_rate_limits = undef,
-  $create_networks = false,
+  $manage_volumes                = false,
+  $nv_physical_volume            = undef,
+  $cinder_volume_group           = 'cinder-volumes',
+  $cinder                        = true,
+  $cinder_user_password          = 'cinder_user_pass',
+  $cinder_db_password            = 'cinder_db_pass',
+  $cinder_db_user                = 'cinder',
+  $cinder_db_dbname              = 'cinder',
+  $cinder_iscsi_bind_addr        = false,
+  $cinder_multibackend           = {},
   
+  $db_host                       = '127.0.0.1',
+  $use_syslog                    = false,
+  $syslog_log_facility           = 'LOCAL6',
+  $syslog_log_facility_cinder    = 'LOCAL3',
+  $syslog_log_facility_quantum   = 'LOCAL4',
+  $syslog_log_level = 'WARNING',
+  $nova_rate_limits              = undef,
+  $cinder_rate_limits            = undef,
+  $create_networks               = false,
+
   # Baremetal options
 
   $scheduler_host_manager = 'nova.scheduler.baremetal_host_manager.BaremetalHostManager',
@@ -152,7 +163,6 @@ class openstack::compute_bm (
   $baremetal_sql_connection = "mysql://nova:nova@${service_endpoint}/nova_bm", # TODO: MySQL IP
 
   $baremetal_dnsmasq_bind_iface = 'baremetal0',
-
 ) {
 
   #
@@ -185,17 +195,21 @@ class openstack::compute_bm (
       image_service        => 'nova.image.glance.GlanceImageService',
       glance_api_servers   => $glance_api_servers,
       verbose              => $verbose,
+      debug                => $debug,
       rabbit_host          => $rabbit_host,
       use_syslog           => $use_syslog,
+      syslog_log_facility  => $syslog_log_facility,
+      syslog_log_level     => $syslog_log_level,
       api_bind_address     => $internal_address,
       rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+      state_path           => $state_path,
   }
 
   #Cinder setup
     $enabled_apis = 'metadata'
     package {'python-cinderclient': ensure => present}
     if $cinder and $manage_volumes {
-    class {'openstack::cinder':
+      class {'openstack::cinder':
         sql_connection       => "mysql://${cinder_db_user}:${cinder_db_password}@${db_host}/${cinder_db_dbname}?charset=utf8",
         rabbit_password      => $rabbit_password,
         rabbit_host          => false,
@@ -209,11 +223,18 @@ class openstack::compute_bm (
         bind_host            => false,
         iscsi_bind_host      => $cinder_iscsi_bind_addr,
         cinder_user_password => $cinder_user_password,
+        verbose              => $verbose,
+        debug                => $debug,
         use_syslog           => $use_syslog,
+        syslog_log_facility  => $syslog_log_facility_cinder,
+        syslog_log_level     => $syslog_log_level,
         cinder_rate_limits   => $cinder_rate_limits,
         rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+        multibackend         => $cinder_multibackend,
+      }
     }
-  }
+
+
 
   # Install / configure nova-compute
   class { '::nova::compute':
@@ -224,18 +245,17 @@ class openstack::compute_bm (
     vncproxy_host                 => $vncproxy_host,
   }
 
-  case $::osfamily {
-    'Debian': {$scp_package='openssh-client'}
-    'RedHat': {$scp_package='openssh-clients'}
-    default: {
-      fail("Unsupported osfamily: ${osfamily}")
+    case $::osfamily {
+      'Debian': {$scp_package='openssh-client'}
+      'RedHat': {$scp_package='openssh-clients'}
+       default: {
+                 fail("Unsupported osfamily: ${osfamily}")
+      }
     }
-  }
+    if !defined(Package[$scp_package]) {
+      package {$scp_package: ensure => present }
+    }
 
-  if !defined(Package[$scp_package]) {
-      package {$scp_package: ensure => present } 
-  }
- 
   if ( $ssh_private_key != undef ) {
    file { '/var/lib/nova/.ssh':
       ensure => directory,
@@ -273,7 +293,7 @@ class openstack::compute_bm (
     }
   }
 
-  # configure nova api 
+  # configure nova api
   class { 'nova::api':
     ensure_package    => $::openstack_version['nova'],
     enabled           => true,
@@ -351,13 +371,19 @@ class openstack::compute_bm (
     $enable_tunneling = $tenant_network_type ? { 'gre' => true, 'vlan' => false }
 
     class { '::quantum':
-      verbose         => $verbose,
-      debug           => $verbose,
       rabbit_host     => $rabbit_nodes ? { false => $rabbit_host, default => $rabbit_nodes },
       rabbit_user     => $rabbit_user,
       rabbit_password => $rabbit_password,
+      verbose         => $verbose,
+      debug           => $debug,
       use_syslog           => $use_syslog,
+      syslog_log_level     => $syslog_log_level,
+      syslog_log_facility  => $syslog_log_facility_quantum,
       rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+      auth_host            => $auth_host,
+      auth_tenant          => 'services',
+      auth_user            => 'quantum',
+      auth_password        => $quantum_user_password,
     }
 
     class { 'quantum::plugins::ovs':
@@ -379,7 +405,7 @@ class openstack::compute_bm (
 
     # class { 'quantum::agents::dhcp':
     #   debug          => True,
-    #   use_namespaces => False,
+    #   use_namespaces => $::quantum_use_namespaces,
     # }
 
     # class { 'quantum::agents::l3':
@@ -388,7 +414,7 @@ class openstack::compute_bm (
     #   auth_tenant    => 'services',
     #   auth_user      => 'quantum',
     #   auth_password  => $quantum_user_password,
-    #   use_namespaces => False,
+    #   use_namespaces => $::quantum_use_namespaces,
     # }
 
     class { 'nova::compute::quantum': }
@@ -415,181 +441,23 @@ class openstack::compute_bm (
     }
   }
 
-  # Baremetal part of the manifest #
+  ## Baremetal part of the manifest ##
 
-  if !defined( Package['ipmitool'] ) {
-    package { 'ipmitool': ensure => present }
+  class { 'baremetal':
+    scheduler_host_manager => $scheduler_host_manager,
+    firewall_driver => $firewall_driver,
+    compute_driver => $compute_driver,
+    ram_allocation_ratio => $ram_allocation_ratio,
+    reserved_host_memory_mb => $reserved_host_memory_mb,
+
+    python_path => $python_path,
+    baremetal_net_config_template => $baremetal_net_config_template,
+    baremetal_tftp_root => $baremetal_tftp_root,
+    baremetal_power_manager => $baremetal_power_manager,
+    baremetal_driver => $baremetal_driver,
+    baremetal_instance_type_extra_specs => $baremetal_instance_type_extra_specs,
+    baremetal_sql_connection => $baremetal_sql_connection,
+
+    baremetal_dnsmasq_bind_iface => $baremetal_dnsmasq_bind_iface,
   }
-  if !defined( Package['syslinux'] ) {
-    package { 'syslinux': ensure => present }
-  }
-
-  # Episode 1: dnsmasq & tftp
-
-  if !defined( Package['dnsmasq'] ) {
-    package { 'dnsmasq':  ensure => present }
-  }
-
-  File['/tftpboot'] -> File['/tftpboot/pxelinux.cfg']
-
-  File['/var/lib/nova/baremetal'] -> File[
-      '/var/lib/nova/baremetal/dnsmasq',
-      '/var/lib/nova/baremetal/console'
-  ]
-
-  file {
-    [
-      '/tftpboot',
-      '/tftpboot/pxelinux.cfg',
-      '/var/lib/nova/baremetal',
-      '/var/lib/nova/baremetal/dnsmasq',
-      '/var/lib/nova/baremetal/console',
-    ]:
-      ensure => directory,
-      owner => nova,
-      mode => 755;
-
-    [
-      '/etc/dnsmasq.conf',
-      '/etc/init.d/dnsmasq',
-    ]:
-      ensure => absent;
-
-    '/etc/dnsmasq-bm.conf':
-      content => template('openstack/dnsmasq-bm.conf.erb'), # TODO: $baremetal_dnsmasq_bind_iface
-      mode => 644,
-      owner => root;
-
-    '/etc/init.d/fuel-dnsmasq-bm':
-      source => 'puppet:///modules/openstack/fuel-dnsmasq-bm',
-      mode => 755,
-      owner => root;
-
-    '/etc/init.d/fuel-nova-baremetal-deploy-helper':
-      source => 'puppet:///modules/openstack/fuel-nova-baremetal-deploy-helper',
-      mode => 755,
-      owner => root;
-
-    '/tftpboot/pxelinux.0':
-      source => '/usr/share/syslinux/pxelinux.0', # Note: CentOS only
-      require => [
-        File['/tftpboot'],
-        Package['syslinux'],
-      ],
-      mode => 644,
-      owner => root;
-  }
-
-  service { 
-    'fuel-dnsmasq-bm':
-      hasstatus => true,
-      hasrestart => true,
-      restart => '/etc/init.d/fuel-dnsmasq-bm reload',
-      require => [
-        Package['dnsmasq'],
-        File[
-          '/etc/dnsmasq-bm.conf',
-          '/etc/init.d/fuel-dnsmasq-bm'
-        ]
-      ];
-
-    'fuel-nova-baremetal-deploy-helper':
-      hasstatus => true,
-      hasrestart => true,
-      require => File['/etc/init.d/fuel-nova-baremetal-deploy-helper'];
-  }
-
-  # Episode 2: iptables
-
-  # iptables:
-  # iptables -I INPUT -p tcp -m multiport --ports 10000 -m comment --comment "nova-baremetal-deploy-helper" -j ACCEPT
-
-  firewall {'401 nova-baremetal-deploy-helper':
-    port => '10000',
-    proto  => 'tcp',
-    action => 'accept',
-  }
-
-  # Episode 3: nova.conf
-
-  nova_config {
-    'DEFAULT/scheduler_host_manager':       value => $scheduler_host_manager;
-    'DEFAULT/firewall_driver':              value => $firewall_driver;
-    'DEFAULT/compute_driver':               value => $compute_driver;
-    'DEFAULT/ram_allocation_ratio':         value => $ram_allocation_ratio;
-    'DEFAULT/reserved_host_memory_mb':      value => $reserved_host_memory_mb;
-
-    'baremetal/net_config_template':        value => $baremetal_net_config_template;
-    'baremetal/tftp_root':                  value => $baremetal_tftp_root;
-    'baremetal/power_manager':              value => $baremetal_power_manager;
-    'baremetal/driver':                     value => $baremetal_driver;
-    'baremetal/instance_type_extra_specs':  value => $baremetal_instance_type_extra_specs;
-    'baremetal/sql_connection':             value => $baremetal_sql_connection;
-  }
-
-  # Episode 4: patch for IPMI.py
-
-  file { 'ipmi.py.patch':
-    name => "/usr/lib/${python_path}/nova/virt/baremetal/ipmi.py.patch",
-    source => 'puppet:///modules/openstack/ipmi.py.patch',
-    ensure => present,
-  }
-
-  if !defined( Package['patch'] ) {
-    package { 'patch': ensure => present }
-  }
-
-  exec { 'patch-nova-ipmi':
-    path    => ["/sbin", "/bin", "/usr/sbin", "/usr/bin"],
-    command => "patch -p0 -f \
-      /usr/lib/${python_path}/nova/virt/baremetal/ipmi.py \
-      /usr/lib/${python_path}/nova/virt/baremetal/ipmi.py.patch",
-    require => [ 
-      File['ipmi.py.patch'],
-      Package['patch', $::nova::params::compute_package_name]
-    ],
-    subscribe => [
-      File['ipmi.py.patch'],
-      Package[$::nova::params::compute_package_name]
-    ],
-    returns => [0, 1],
-    refreshonly => true,
-  }
-
-  # Episode 5: MySQL DB
-
-  # mysql DB: mysql> CREATE DATABASE nova_bm;
-  # mysql> GRANT ALL ON nova_bm.* TO 'nova'@'%';
-  # nova-baremetal-manage db sync
-  #
-  # This is done in modules/baremetal & openstack/.../mysql
-
-  # Episode 6: incron
-
-#  file {
-#    '/etc/incron.d/root':
-#      ensure => present,
-#      content => '/tftpboot/pxelinux.cfg IN_CREATE,IN_DELETE /usr/bin/bm-manage-mac $# $%',
-#      notify => Service['incron'];
-
-#    '/usr/bin/bm-manage-mac':
-#      source => 'puppet:///modules/openstack/bm-manage-mac',
-#      ensure => present;
-#  }
-
-#  if !defined( Package['incron'] ) {
-#    package { 'incron': ensure => installed }
-#  }
-
-#  if !defined( Service['incron'] ) {
-#    service { 'incron':
-#      name => $osfamily ? {
-#        'Debian' => 'incron',
-#        default  => 'incrond',
-#      },
-#      ensure => running,
-#      enable => true,
-#      require => Package['incron'],
-#    }
-#  }
 }

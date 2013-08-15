@@ -52,6 +52,8 @@ class openstack::db::mysql (
     $nova_db_user            = 'nova',
     $nova_db_dbname          = 'nova',
     $allowed_hosts           = false,
+    # Baremetal
+    $baremetal_db_dbname     = 'nova_bm',
     # Cinder
     $cinder                  = true,
     $cinder_db_user          = 'cinder',
@@ -118,19 +120,19 @@ class openstack::db::mysql (
       allowed_hosts => $allowed_hosts,
     }
 
-    # Create the Baremetal db
-    class { 'baremetal::db::mysql':
+    # Create the Nova db
+    class { 'nova::db::mysql':
       user          => $nova_db_user,
       password      => $nova_db_password,
       dbname        => $nova_db_dbname,
       allowed_hosts => $allowed_hosts,
     }
 
-    # Create the Nova db
-    class { 'nova::db::mysql':
+    # Create the Baremetal db
+    class { 'baremetal::db::mysql':
       user          => $nova_db_user,
       password      => $nova_db_password,
-      dbname        => $nova_db_dbname,
+      dbname        => $baremetal_db_dbname,
       allowed_hosts => $allowed_hosts,
     }
 
