@@ -1,0 +1,11 @@
+name    'vcenter'
+version '0.1.0'
+source  'git://github.com/Mirantis/fuel'
+author  'Mirantis'
+license 'Apache'
+summary 'vCenter OpenStack integration Puppet Module'
+description 'Openstack Baremetal module.'
+project_page 'http://fuel.mirantis.com'
+
+dependency 'ripienaar/concat', '>= 0.1.0'
+dependency 'puppetlabs/stdlib', '>= 2.3.0'

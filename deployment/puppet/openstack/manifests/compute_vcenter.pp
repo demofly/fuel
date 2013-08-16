@@ -1,7 +1,7 @@
 #
-# == Class: openstack::compute_vcenter
+# == Class: openstack::compute
 #
-# Manifest to install/configure nova-compute with vCenter Driver
+# Manifest to install/configure nova-compute
 #
 # === Parameters
 #
@@ -36,19 +36,28 @@
 #    Defaults to false. False indicates that a vnc proxy should not be configured.
 #  [vnc_enabled] Rather vnc console should be enabled.
 #    Optional. Defaults to 'true',
-#  [verbose] Rather components should log verbosely.
-#    Optional. Defaults to false.
+# [verbose] Rather to print more verbose (INFO+) output. If non verbose and non debug, would give syslog_log_level (default is WARNING) output. Optional. Defaults to false.
+# [debug] Rather to print even more verbose (DEBUG+) output. If true, would ignore verbose option. Optional. Defaults to false.
 #  [manage_volumes] Rather nova-volume should be enabled on this compute node.
 #    Optional. Defaults to false.
 #  [nova_volumes] Name of volume group in which nova-volume will create logical volumes.
 #    Optional. Defaults to nova-volumes.
+# [use_syslog] Rather or not service should log to syslog. Optional.
+# [syslog_log_facility] Facility for syslog, if used. Optional. Note: duplicating conf option 
+#       wouldn't have been used, but more powerfull rsyslog features managed via conf template instead
+# [syslog_log_level] logging level for non verbose and non debug mode. Optional.
 #
+# class { 'openstack::nova::compute':
+#   internal_address   => '192.168.2.2',
+#   vncproxy_host      => '192.168.1.1',
+#   nova_user_password => 'changeme',
+# }
 #
 # class { 'openstack::nova::compute_vcenter':
 #   internal_address   => '192.168.2.2',
 #   vncproxy_host      => '192.168.1.1',
 #   nova_user_password => 'changeme',
-#   
+#
 #   compute_driver               = 'vmwareapi.VMwareVCDriver',
 #   vmwareapi_server_ip          = '',
 #   vmwareapi_username           = '',
@@ -76,8 +85,6 @@
 #    "name" => "fuel-vcenter-01",
 #    "role" => "vcenter"
 #  } ... ]
-
-
 
 class openstack::compute_vcenter (
   # Required Network
@@ -119,28 +126,37 @@ class openstack::compute_vcenter (
   $tenant_network_type           = 'gre',
   $segment_range                 = '1:4094',
   # nova compute configuration parameters
-  $verbose             = false,
-  $service_endpoint    = '127.0.0.1',
-  $ssh_private_key     = undef,
-  $cache_server_ip     = ['127.0.0.1'],
-  $cache_server_port   = '11211',
-  $ssh_public_key      = undef,
+  $verbose                       = false,
+  $debug               = false,
+  $service_endpoint              = '127.0.0.1',
+  $ssh_private_key               = undef,
+  $cache_server_ip               = ['127.0.0.1'],
+  $cache_server_port             = '11211',
+  $ssh_public_key                = undef,
   # if the cinder management components should be installed
-  $manage_volumes          = false,
-  $nv_physical_volume      = undef,
-  $cinder_volume_group     = 'cinder-volumes',
-  $cinder                  = true,
-  $cinder_user_password    = 'cinder_user_pass',
-  $cinder_db_password      = 'cinder_db_pass',
-  $cinder_db_user          = 'cinder',
-  $cinder_db_dbname        = 'cinder',
-  $cinder_iscsi_bind_addr  = false,
-  $db_host                 = '127.0.0.1',
-  $use_syslog              = false,
-  $nova_rate_limits = undef,
-  $cinder_rate_limits = undef,
-  $create_networks = false,
+  $manage_volumes                = false,
+  $nv_physical_volume            = undef,
+  $cinder_volume_group           = 'cinder-volumes',
+  $cinder                        = true,
+  $cinder_user_password          = 'cinder_user_pass',
+  $cinder_db_password            = 'cinder_db_pass',
+  $cinder_db_user                = 'cinder',
+  $cinder_db_dbname              = 'cinder',
+  $cinder_iscsi_bind_addr        = false,
+  $cinder_multibackend           = {},
+  
+  $db_host                       = '127.0.0.1',
+  $use_syslog                    = false,
+  $syslog_log_facility           = 'LOCAL6',
+  $syslog_log_facility_cinder    = 'LOCAL3',
+  $syslog_log_facility_quantum   = 'LOCAL4',
+  $syslog_log_level = 'WARNING',
+  $nova_rate_limits              = undef,
+  $cinder_rate_limits            = undef,
+  $create_networks               = false,
+
   # vCenter integration variables
+
   $compute_driver               = 'vmwareapi.VMwareVCDriver',
   $vmwareapi_server_ip          = '',
   $vmwareapi_username           = '',
@@ -152,12 +168,13 @@ class openstack::compute_vcenter (
   $vmwareapi_api_retry_count    = '10',
   $vmwareapi_task_poll_interval = '5.0',
   $vmwareapi_vlan_interface     = 'vmnic0',
-  
+
 ) {
 
+  #
   # indicates that all nova config entries that we did
-  # not specified in Puppet should be purged from file
-
+  # not specifify in Puppet should be purged from file
+  #
   if ! defined( Resources[nova_config] ) {
     if ($purge_nova_config) {
       resources { 'nova_config':
@@ -170,83 +187,60 @@ class openstack::compute_vcenter (
   $glance_connection = $glance_api_servers
   $rabbit_connection = $rabbit_host
 
-#  case $::osfamily {
-#    'RedHat': {
-#      augeas { 'sysconfig-libvirt':
-#        context => '/files/etc/sysconfig/libvirtd',
-#        changes => 'set LIBVIRTD_ARGS "--listen"',
-#        before  => Augeas['libvirt-conf'],
-#      }
-#    }
-#    'Debian': {
-#      augeas { 'default-libvirt':
-#        context => '/files/etc/default/libvirt-bin',
-#        changes => "set libvirtd_opts '\"-l -d\"'",
-#        before  => Augeas['libvirt-conf'],
-#      }
-#    }
-#     default: { fail("Unsupported osfamily: ${::osfamily}") }
-#  }
-
-#  augeas { 'libvirt-conf':
-#    context => '/files/etc/libvirt/libvirtd.conf',
-#    changes =>[
-#      'set listen_tls 0',
-#      'set listen_tcp 1',
-#      'set auth_tcp none',
-#    ],
-#    notify => Service['libvirt'],
-#  }
-
   $memcached_addresses =  inline_template("<%= @cache_server_ip.collect {|ip| ip + ':' + @cache_server_port }.join ',' %>")
-
   nova_config {'DEFAULT/memcached_servers':
     value => $memcached_addresses
   }
 
   class { 'nova':
-    ensure_package       => $::openstack_version['nova'],
-    sql_connection       => $sql_connection,
-    rabbit_nodes         => $rabbit_nodes,
-    rabbit_userid        => $rabbit_user,
-    rabbit_password      => $rabbit_password,
-    image_service        => 'nova.image.glance.GlanceImageService',
-    glance_api_servers   => $glance_api_servers,
-    verbose              => $verbose,
-    rabbit_host          => $rabbit_host,
-    use_syslog           => $use_syslog,
-    api_bind_address     => $internal_address,
-    rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+      ensure_package       => $::openstack_version['nova'],
+      sql_connection       => $sql_connection,
+      rabbit_nodes         => $rabbit_nodes,
+      rabbit_userid        => $rabbit_user,
+      rabbit_password      => $rabbit_password,
+      image_service        => 'nova.image.glance.GlanceImageService',
+      glance_api_servers   => $glance_api_servers,
+      verbose              => $verbose,
+      debug                => $debug,
+      rabbit_host          => $rabbit_host,
+      use_syslog           => $use_syslog,
+      syslog_log_facility  => $syslog_log_facility,
+      syslog_log_level     => $syslog_log_level,
+      api_bind_address     => $internal_address,
+      rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+      state_path           => $state_path,
   }
 
-  ## Cinder setup ##
-
-  $enabled_apis = 'metadata'
-  
-  package {'python-cinderclient': ensure => present}
-  
-  if $cinder and $manage_volumes {
-
-    class {'openstack::cinder':
-      sql_connection       => "mysql://${cinder_db_user}:${cinder_db_password}@${db_host}/${cinder_db_dbname}?charset=utf8",
-      rabbit_password      => $rabbit_password,
-      rabbit_host          => false,
-      rabbit_nodes         => $rabbit_nodes,
-      volume_group         => $cinder_volume_group,
-      physical_volume      => $nv_physical_volume,
-      manage_volumes       => $manage_volumes,
-      enabled              => true,
-      glance_api_servers   => $glance_api_servers,
-      auth_host            => $service_endpoint,
-      bind_host            => false,
-      iscsi_bind_host      => $cinder_iscsi_bind_addr,
-      cinder_user_password => $cinder_user_password,
-      use_syslog           => $use_syslog,
-      cinder_rate_limits   => $cinder_rate_limits,
-      rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+  #Cinder setup
+    $enabled_apis = 'metadata'
+    package {'python-cinderclient': ensure => present}
+    if $cinder and $manage_volumes {
+      class {'openstack::cinder':
+        sql_connection       => "mysql://${cinder_db_user}:${cinder_db_password}@${db_host}/${cinder_db_dbname}?charset=utf8",
+        rabbit_password      => $rabbit_password,
+        rabbit_host          => false,
+        rabbit_nodes         => $rabbit_nodes,
+        volume_group         => $cinder_volume_group,
+        physical_volume      => $nv_physical_volume,
+        manage_volumes       => $manage_volumes,
+        enabled              => true,
+        glance_api_servers   => $glance_api_servers,
+        auth_host            => $service_endpoint,
+        bind_host            => false,
+        iscsi_bind_host      => $cinder_iscsi_bind_addr,
+        cinder_user_password => $cinder_user_password,
+        verbose              => $verbose,
+        debug                => $debug,
+        use_syslog           => $use_syslog,
+        syslog_log_facility  => $syslog_log_facility_cinder,
+        syslog_log_level     => $syslog_log_level,
+        cinder_rate_limits   => $cinder_rate_limits,
+        rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+        multibackend         => $cinder_multibackend,
+      }
     }
 
-  }
+
 
   # Install / configure nova-compute
   class { '::nova::compute':
@@ -257,43 +251,46 @@ class openstack::compute_vcenter (
     vncproxy_host                 => $vncproxy_host,
   }
 
-  case $::osfamily {
-    'Debian': {$scp_package='openssh-client'}
-    'RedHat': {$scp_package='openssh-clients'}
-    default: {
-      fail("Unsupported osfamily: ${osfamily}")
+    case $::osfamily {
+      'Debian': {$scp_package='openssh-client'}
+      'RedHat': {$scp_package='openssh-clients'}
+       default: {
+                 fail("Unsupported osfamily: ${osfamily}")
+      }
     }
-  }
-
-  if !defined( Package[$scp_package] ) {
-    package { $scp_package: ensure => present }
-  }
+    if !defined(Package[$scp_package]) {
+      package {$scp_package: ensure => present }
+    }
 
   if ( $ssh_private_key != undef ) {
-    file { '/var/lib/nova/.ssh':
+   file { '/var/lib/nova/.ssh':
       ensure => directory,
       owner  => 'nova',
       group  => 'nova',
-      mode   => '0700';
-    '/var/lib/nova/.ssh/authorized_keys':
+      mode   => '0700'
+    }
+    file { '/var/lib/nova/.ssh/authorized_keys':
       ensure => present,
       owner  => 'nova',
       group  => 'nova',
       mode   => '0400',
-      source => $ssh_public_key;
-    '/var/lib/nova/.ssh/id_rsa':
+      source => $ssh_public_key,
+    }
+    file { '/var/lib/nova/.ssh/id_rsa':
       ensure => present,
       owner  => 'nova',
       group  => 'nova',
       mode   => '0400',
-      source => $ssh_private_key;
-    '/var/lib/nova/.ssh/id_rsa.pub':
+      source => $ssh_private_key,
+    }
+    file { '/var/lib/nova/.ssh/id_rsa.pub':
       ensure => present,
       owner  => 'nova',
       group  => 'nova',
       mode   => '0400',
-      source => $ssh_public_key;
-    '/var/lib/nova/.ssh/config':
+      source => $ssh_public_key,
+    }
+    file { '/var/lib/nova/.ssh/config':
       ensure  => present,
       owner   => 'nova',
       group   => 'nova',
@@ -302,7 +299,7 @@ class openstack::compute_vcenter (
     }
   }
 
-  # configure nova api 
+  # configure nova api
   class { 'nova::api':
     ensure_package    => $::openstack_version['nova'],
     enabled           => true,
@@ -317,35 +314,33 @@ class openstack::compute_vcenter (
 
   # if the compute node should be configured as a multi-host
   # compute installation
-
   if ! $quantum {
-
     if ! $fixed_range {
       fail('Must specify the fixed range when using nova-networks')
     }
 
     if $multi_host {
-
       include keystone::python
-      $enable_network_service = true
+
+      nova_config {
+        'DEFAULT/multi_host':      value => 'True';
+        'DEFAULT/send_arp_for_ha': value => 'True';
+        # 'DEFAULT/metadata_listen': value => $internal_address;
+        'DEFAULT/metadata_host':   value => $internal_address;
+      }
 
       if ! $public_interface {
         fail('public_interface must be defined for multi host compute nodes')
       }
 
-      nova_config {
-        'DEFAULT/multi_host':        value => 'True';
-        'DEFAULT/send_arp_for_ha':   value => 'True';
-        # 'DEFAULT/metadata_listen': value => $internal_address;
-        'DEFAULT/metadata_host':     value => $internal_address;
-      }
+      $enable_network_service = true
 
       if $auto_assign_floating_ip {
          nova_config { 'DEFAULT/auto_assign_floating_ip': value => 'True' }
       }
 
-    } else {
 
+    } else {
       $enable_network_service = false
 
       nova_config {
@@ -367,13 +362,11 @@ class openstack::compute_vcenter (
       enabled           => $enable_network_service,
       install_service   => $enable_network_service,
     }
-
   } else {
 
     if ! $quantum_sql_connection {
       fail('quantum sql connection must be specified when quantum is installed on compute instances')
     }
-    
     if ! $quantum_host {
       fail('quantum host must be specified when quantum is installed on compute instances')
     }
@@ -381,16 +374,22 @@ class openstack::compute_vcenter (
       fail('quantum user password must be set when quantum is configured')
     }
 
-    $enable_tunneling = $tenant_network_type ? { 'gre' => true, default => false }
+    $enable_tunneling = $tenant_network_type ? { 'gre' => true, 'vlan' => false }
 
     class { '::quantum':
-      verbose         => $verbose,
-      debug           => $verbose,
       rabbit_host     => $rabbit_nodes ? { false => $rabbit_host, default => $rabbit_nodes },
       rabbit_user     => $rabbit_user,
       rabbit_password => $rabbit_password,
+      verbose         => $verbose,
+      debug           => $debug,
       use_syslog           => $use_syslog,
+      syslog_log_level     => $syslog_log_level,
+      syslog_log_facility  => $syslog_log_facility_quantum,
       rabbit_ha_virtual_ip => $rabbit_ha_virtual_ip,
+      auth_host            => $auth_host,
+      auth_tenant          => 'services',
+      auth_user            => 'quantum',
+      auth_password        => $quantum_user_password,
     }
 
     class { 'quantum::plugins::ovs':
@@ -409,16 +408,30 @@ class openstack::compute_vcenter (
       local_ip         => $internal_address,
     }
 
+
+    # class { 'quantum::agents::dhcp':
+    #   debug          => True,
+    #   use_namespaces => $::quantum_use_namespaces,
+    # }
+
+    # class { 'quantum::agents::l3':
+    #   debug          => True,
+    #   auth_url       => "http://${service_endpoint}:35357/v2.0",
+    #   auth_tenant    => 'services',
+    #   auth_user      => 'quantum',
+    #   auth_password  => $quantum_user_password,
+    #   use_namespaces => $::quantum_use_namespaces,
+    # }
+
     class { 'nova::compute::quantum': }
 
     # does this have to be installed on the compute node?
     # NOTE
-
     class { 'nova::network::quantum':
-      # $fixed_range,
+    #$fixed_range,
       quantum_admin_password    => $quantum_user_password,
-      # $use_dhcp                  = 'True',
-      # $public_interface          = undef,
+    #$use_dhcp                  = 'True',
+    #$public_interface          = undef,
       quantum_connection_host   => $quantum_host,
       quantum_auth_strategy     => 'keystone',
       quantum_url               => "http://${service_endpoint}:9696",
@@ -436,94 +449,17 @@ class openstack::compute_vcenter (
 
   # vCenter part of the manifest
 
-  package { 
-    'python-suds':
-      ensure => present;
-
-    'tomcat6':
-      ensure => present,
-      notify => Service['tomcat6'];
+  class { 'vcenter':
+    compute_driver                => $compute_driver,
+    vmwareapi_server_ip           => $vmwareapi_server_ip,
+    vmwareapi_username            => $vmwareapi_username,
+    vmwareapi_password            => $vmwareapi_password,
+    vmwareapi_clustername         => $vmwareapi_clustername,
+    vmwareapi_wsdl_loc            => $vmwareapi_wsdl_loc,
+    integration_bridge            => $integration_bridge,
+    use_linked_clone              => $use_linked_clone,
+    vmwareapi_api_retry_count     => $vmwareapi_api_retry_count,
+    vmwareapi_task_poll_interval  => $vmwareapi_task_poll_interval,
+    vmwareapi_vlan_interface      => $vmwareapi_vlan_interface,
   }
-
-  service { 'tomcat6': 
-  # Note: CentOS tested only
-    ensure => running,
-    enable => true,
-    hasstatus => true,
-    hasrestart => true,
-    require => Package['tomcat6'],
-  }
-
-  if !defined( Package['unzip'] ) {
-    package { 'unzip':
-      ensure => present,
-    }
-  }
-
-  file {
-    '/etc/nova/vsphere-sdk.zip':
-      # Note: the source file must be dowloaded to /etc/puppet/modules/openstack/files/vsphere-sdk.zip from http://www.vmware.com/support/developer/vc-sdk/ by pressing the 'Download' link at the top of the page.
-      source => 'puppet:///modules/openstack/vsphere-sdk.zip', 
-      ensure => present;
-
-    '/var/lib/tomcat6/webapps/vmware':
-      ensure => directory,
-      require => Package['tomcat6'];
-  }
-
-  exec { 'Tomcat vSphere SDK installation':
-    command => 'rm -rf /var/lib/tomcat6/webapps/vmware/*; cd /var/lib/tomcat6/webapps/vmware && unzip /etc/nova/vsphere-sdk.zip',
-    path => ['/sbin', '/bin', '/usr/sbin', '/usr/bin'],
-    require => [ 
-      Package['unzip'],
-      File['/var/lib/tomcat6/webapps/vmware', '/etc/nova/vsphere-sdk.zip']
-    ],
-    notify => Service['tomcat6'],
-    subscribe => File['/var/lib/tomcat6/webapps/vmware', '/etc/nova/vsphere-sdk.zip'],
-    refreshonly => true,
-  }
-
-  # vCenter options validation
-
-  if !( $compute_driver in ['vmwareapi.VMwareVCDriver', 'vmwareapi.VMwareESXDriver'] ) {
-    fail('$compute_driver is not suitable for openstack::compute_vcenter usage')
-  }
-  if empty($vmwareapi_server_ip) {
-    fail('$vmwareapi_server_ip is not defined in openstack::compute_vcenter')
-  }
-  if empty($vmwareapi_username) {
-    fail('$vmwareapi_username is not defined in openstack::compute_vcenter')
-  }
-  if ('vmwareapi.VMwareVCDriver' == $compute_driver) {
-    if empty($vmwareapi_clustername) {
-      fail('$vmwareapi_clustername is not defined in openstack::compute_vcenter for vmwareapi.VMwareVCDriver')
-    }
-  }
-  if empty($vmwareapi_wsdl_loc) {
-    fail('$vmwareapi_wsdl_loc is not defined in openstack::compute_vcenter')
-  }
-  if empty($vmwareapi_api_retry_count) {
-    fail('$vmwareapi_api_retry_count is not defined in openstack::compute_vcenter')
-  }
-  if empty($vmwareapi_task_poll_interval) {
-    fail('$vmwareapi_task_poll_interval is not defined in openstack::compute_vcenter')
-  }
-  if empty($vmwareapi_vlan_interface) {
-    fail('$vmwareapi_vlan_interface is not defined in openstack::compute_vcenter')
-  }
-
-  nova_config {
-    'DEFAULT/compute_driver':               value => $compute_driver;
-    'DEFAULT/vmwareapi_host_ip':            value => $vmwareapi_server_ip;
-    'DEFAULT/vmwareapi_host_username':      value => $vmwareapi_username;
-    'DEFAULT/vmwareapi_host_password':      value => $vmwareapi_password;
-    'DEFAULT/vmwareapi_cluster_name':       value => $vmwareapi_clustername;
-    'DEFAULT/vmwareapi_wsdl_loc':           value => $vmwareapi_wsdl_loc;
-    'DEFAULT/integration_bridge':           value => $integration_bridge;
-    'DEFAULT/use_linked_clone':             value => $use_linked_clone;
-    'DEFAULT/vmwareapi_api_retry_count':    value => $vmwareapi_api_retry_count;
-    'DEFAULT/vmwareapi_task_poll_interval': value => $vmwareapi_task_poll_interval;
-    'DEFAULT/vmwareapi_vlan_interface':     value => $vmwareapi_vlan_interface;
-  }
-
 }
