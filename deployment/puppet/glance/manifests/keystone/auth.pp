@@ -31,16 +31,24 @@ class glance::keystone::auth(
   Keystone_user_role["${auth_name}@${tenant}"] ~> Service <| name == 'glance-registry' |>
   Keystone_user_role["${auth_name}@${tenant}"] ~> Service <| name == 'glance-api' |>
 
-  keystone_user { $auth_name:
-    ensure   => present,
-    password => $password,
-    email    => $email,
-    tenant   => $tenant,
+  case $keystone_identity_driver {
+    ActiveDirectory: {
+    }
+
+    default: {
+        keystone_user { $auth_name:
+            ensure   => present,
+            password => $password,
+            email    => $email,
+            tenant   => $tenant,
+        }
+        keystone_user_role { "${auth_name}@${tenant}":
+            ensure  => present,
+            roles   => 'admin',
+        }
+    }
   }
-  keystone_user_role { "${auth_name}@${tenant}":
-    ensure  => present,
-    roles   => 'admin',
-  }
+
   keystone_service { $auth_name:
     ensure      => present,
     type        => $service_type,

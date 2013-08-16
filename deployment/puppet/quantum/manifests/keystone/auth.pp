@@ -12,18 +12,26 @@ class quantum::keystone::auth (
   $region             = 'RegionOne'
 ) {
 
-  keystone_user { $auth_name:
-    ensure   => present,
-    password => $password,
-    email    => $email,
-    tenant   => $tenant,
-  }
-  keystone_user_role { "${auth_name}@services":
-    ensure  => present,
-    roles   => 'admin',
-  }
+  case $keystone_identity_driver {
+    ActiveDirectory: {
+    }
 
-  Keystone_user_role["${auth_name}@services"] ~> Service <| name == 'quantum-server' |>
+    default: {
+        keystone_user { $auth_name:
+            ensure   => present,
+            password => $password,
+            email    => $email,
+            tenant   => $tenant,
+        }
+  
+        keystone_user_role { "${auth_name}@services":
+            ensure  => present,
+            roles   => 'admin',
+        }
+  
+        Keystone_user_role["${auth_name}@services"] ~> Service <| name == 'quantum-server' |>
+    }
+  }
 
   keystone_service { $auth_name:
     ensure      => present,

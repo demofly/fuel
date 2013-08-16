@@ -27,14 +27,21 @@ class swift::keystone::dispersion(
   $auth_pass = 'dispersion_password'
 ) {
 
-  keystone_user { $auth_user:
-    ensure   => present,
-    password => $auth_pass,
-  }
+  case $keystone_identity_driver {
+    ActiveDirectory: {
+    }
 
-  keystone_user_role { "${auth_user}@services":
-    ensure  => present,
-    roles   => 'admin',
-    require => Keystone_user[$auth_user]
+    default: {
+        keystone_user { $auth_user:
+            ensure   => present,
+            password => $auth_pass,
+        }
+
+        keystone_user_role { "${auth_user}@services":
+            ensure  => present,
+            roles   => 'admin',
+            require => Keystone_user[$auth_user]
+        }
+    }
   }
 }
