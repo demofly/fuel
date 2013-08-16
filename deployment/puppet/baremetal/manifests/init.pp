@@ -1,24 +1,24 @@
 class baremetal (
   $package_ensure = 'present',
 
-  $scheduler_host_manager = 'nova.scheduler.baremetal_host_manager.BaremetalHostManager',
-  $firewall_driver = 'nova.virt.firewall.NoopFirewallDriver',
-  $compute_driver = 'nova.virt.baremetal.driver.BareMetalDriver',
-  $ram_allocation_ratio = '1.0',
-  $reserved_host_memory_mb = '0',
+  $scheduler_host_manager   = 'nova.scheduler.baremetal_host_manager.BaremetalHostManager',
+  $firewall_driver          = 'nova.virt.firewall.NoopFirewallDriver',
+  $compute_driver           = 'nova.virt.baremetal.driver.BareMetalDriver',
+  $ram_allocation_ratio     = '1.0',
+  $reserved_host_memory_mb  = '0',
 
   $python_path = $osfamily ? {
     'Debian' => 'python2.7/dist-packages',
     default  => 'python2.6/site-packages'
   },
-  $baremetal_net_config_template = "/usr/lib/$python_path/nova/virt/baremetal/net-static.ubuntu.template", # TODO: OS dependent path
-  $baremetal_tftp_root = '/tftpboot',
-  $baremetal_power_manager = 'nova.virt.baremetal.ipmi.IPMI',
-  $baremetal_driver = 'nova.virt.baremetal.pxe.PXE',
-  $baremetal_instance_type_extra_specs = 'cpu_arch:x86_64',
-  $baremetal_sql_connection = "mysql://nova:nova@${service_endpoint}/nova_bm",
+  $baremetal_net_config_template        = "/usr/lib/$python_path/nova/virt/baremetal/net-static.ubuntu.template", # TODO: OS dependent path
+  $baremetal_tftp_root                  = '/tftpboot',
+  $baremetal_power_manager              = 'nova.virt.baremetal.ipmi.IPMI',
+  $baremetal_driver                     = 'nova.virt.baremetal.pxe.PXE',
+  $baremetal_instance_type_extra_specs  = 'cpu_arch:x86_64',
+  $baremetal_sql_connection             = "mysql://nova:nova@${service_endpoint}/nova_bm",
 
-  $baremetal_dnsmasq_bind_iface = 'baremetal0',
+  $baremetal_dnsmasq_bind_iface         = 'eth0.baremetalvlan',
 ) {
 
   include baremetal::params
