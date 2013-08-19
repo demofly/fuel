@@ -170,7 +170,7 @@ class keystone(
     'DEFAULT/debug':        value => $debug;
     'DEFAULT/verbose':      value => $verbose;
     'DEFAULT/use_syslog':   value => $use_syslog;
-    'identity/driver': value =>"keystone.identity.backends.sql.Identity";
+  #  'identity/driver': value =>"keystone.identity.backends.sql.Identity";
     'token/driver': value =>"keystone.token.backends.sql.Token";
     'policy/driver': value =>"keystone.policy.backends.rules.Policy";
     'ec2/driver': value =>"keystone.contrib.ec2.backends.sql.Ec2";
@@ -200,6 +200,20 @@ class keystone(
     'composite:admin/use': value =>"egg:Paste#urlmap";
     'composite:admin//v2.0': value =>"admin_api";
     'composite:admin//': value =>"admin_version_api";
+  }
+
+  case $keystone_identity_driver {
+    ActiveDirectory: {
+        keystone_config {
+            'identity/driver': value =>"keystone.identity.backends.ldap.Identity";
+        }
+    }
+
+    default: {
+        keystone_config {
+            'identity/driver': value =>"keystone.identity.backends.sql.Identity";
+        }
+    }
   }
 
   if($sql_connection =~ /mysql:\/\/\S+:\S+@\S+\/\S+/) {

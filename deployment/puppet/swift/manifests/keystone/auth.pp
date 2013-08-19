@@ -25,15 +25,22 @@ class swift::keystone::auth(
     $public_address_real = $public_address
   }
 
-  keystone_user { $auth_name:
-    ensure   => present,
-    tenant => 'services',
-    password => $password,
-  }
-  keystone_user_role { "${auth_name}@services":
-    ensure  => present,
-    roles   => 'admin',
-    require => Keystone_user[$auth_name]
+  case $keystone_identity_driver {
+    ActiveDirectory: {
+    }
+    
+    default: {
+        keystone_user { $auth_name:
+            ensure   => present,
+            tenant => 'services',
+            password => $password,
+        }
+        keystone_user_role { "${auth_name}@services":
+            ensure  => present,
+            roles   => 'admin',
+            require => Keystone_user[$auth_name]
+        }
+    }
   }
 
   keystone_service { $auth_name:
