@@ -15,7 +15,6 @@ define swift::storage::node(
 ) {
 
   Swift::Storage::Server {
-    swift_zone           => $zone,
     storage_local_net_ip => $storage_local_net_ip,
     devices              => $mnt_base_dir,
     max_connections      => $max_connections,

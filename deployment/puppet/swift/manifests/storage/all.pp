@@ -43,7 +43,6 @@ class swift::storage::all(
   }
 
   Swift::Storage::Server {
-    swift_zone           => $swift_zone,
     devices              => $devices,
     storage_local_net_ip => $storage_local_net_ip,
   }

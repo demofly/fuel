@@ -381,14 +381,18 @@ class openstack::compute (
       sql_connection      => $quantum_sql_connection,
       tenant_network_type => $tenant_network_type,
       enable_tunneling    => $enable_tunneling,
-      bridge_mappings     => ['physnet2:br-prv'],
-      network_vlan_ranges => "physnet1,physnet2:${segment_range}",
+#      bridge_mappings     => ['physnet2:br-prv'],
+#      network_vlan_ranges => "physnet1,physnet2:${segment_range}",
+      bridge_mappings     => ['physnet1:br-mgmt'],
+      network_vlan_ranges => "physnet1:2324:2339",
       tunnel_id_ranges    => "${segment_range}",
     }
 
     class { 'quantum::agents::ovs':
-      bridge_uplinks   => ["br-prv:${private_interface}"],
-      bridge_mappings  => ['physnet2:br-prv'],
+#      bridge_uplinks   => ["br-prv:${private_interface}"],
+#      bridge_mappings  => ['physnet2:br-prv'],
+      bridge_uplinks   => ["br-mgmt:eth1"],
+      bridge_mappings  => ['physnet1:br-mgmt'],
       enable_tunneling => $enable_tunneling,
       local_ip         => $internal_address,
     }

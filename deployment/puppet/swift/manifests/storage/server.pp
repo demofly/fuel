@@ -5,7 +5,6 @@
 #  name - is going to be port
 define swift::storage::server(
   $type,
-  $swift_zone,
   $port = $name,
   $storage_local_net_ip,
   $devices                = '/srv/node',
@@ -40,7 +39,6 @@ define swift::storage::server(
   # TODO - validate that name is an integer
 
   $bind_port = $name
-
   rsync::server::module { "${type}":
     path => $devices,
     lock_file => "/var/lock/${type}.lock",

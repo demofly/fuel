@@ -34,7 +34,7 @@ Puppet::Type.newtype(:ring_devices) do
         options = {
           :name=>"#{merged_storage['storage_local_net_ip']}:#{port}",
           :mountpoints=>merged_storage['mountpoints'],
-          :zone=>merged_storage['zone']
+          :zone=>merged_storage['swift_zone']
         }
         resources += [Puppet::Type.type("ring_#{type}_device".to_sym).new(options)]
       end

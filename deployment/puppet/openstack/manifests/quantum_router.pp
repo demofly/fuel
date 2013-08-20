@@ -48,7 +48,7 @@ class openstack::quantum_router (
     $enable_tunneling       = $tenant_network_type ? { 'gre' => true, 'vlan' => false }
     $admin_auth_url = "http://${auth_host}:35357/v2.0"
 
-    $use_namespaces = True
+    $use_namespaces = true
 
     class { '::quantum':
       bind_host            => $api_bind_address,
@@ -69,8 +69,9 @@ class openstack::quantum_router (
     }
     #todo: add quantum::server here (into IF)
     class { 'quantum::plugins::ovs':
-      bridge_mappings     => ["physnet1:br-ex","physnet2:br-prv"],
-      network_vlan_ranges => "physnet1,physnet2:${segment_range}",
+#      bridge_mappings     => ["physnet1:br-ex","physnet2:br-prv"],
+      bridge_mappings     => ["physnet1:br-mgmt"],
+      network_vlan_ranges => "physnet1:${segment_range}",
       tunnel_id_ranges    => "${segment_range}",
       sql_connection      => $quantum_sql_connection,
       tenant_network_type => $tenant_network_type,
@@ -80,8 +81,10 @@ class openstack::quantum_router (
 
     if $quantum_network_node {
       class { 'quantum::agents::ovs':
-        bridge_uplinks   => ["br-prv:${private_interface}"],
-        bridge_mappings  => ['physnet2:br-prv'],
+         bridge_uplinks  => [],
+#        bridge_uplinks   => ["br-mgmt:${private_interface}"],
+        bridge_mappings  => ['physnet1:br-mgmt'],
+#        bridge_mappings  => ['physnet2:br-prv'],
         enable_tunneling => $enable_tunneling,
         local_ip         => $internal_address,
         service_provider => $service_provider

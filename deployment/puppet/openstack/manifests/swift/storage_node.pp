@@ -58,6 +58,15 @@ class openstack::swift::storage_node (
     }
   }
 
+  if $storage_type == 'hdd' {
+    # create xfs partitions on a loopback device and mount them
+    swift::storage::hdd { $storage_devices:
+      base_dir     => '/dev',
+      mnt_base_dir => $storage_mnt_base_dir,
+      require      => Class['swift'],
+    }
+  }
+
   # install all swift storage servers together
   class { 'swift::storage::all':
     storage_local_net_ip => $swift_local_net_ip,
