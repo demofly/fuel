@@ -329,9 +329,9 @@ class openstack::compute_vcenter (
         'DEFAULT/metadata_host':   value => $internal_address;
       }
 
-      if ! $public_interface {
-        fail('public_interface must be defined for multi host compute nodes')
-      }
+#      if ! $public_interface {
+#        fail('public_interface must be defined for multi host compute nodes')
+#      }
 
       $enable_network_service = true
 
