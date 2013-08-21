@@ -98,8 +98,8 @@ define cinder::volume::emc (
     default => 'pywbem'
   }
   
-  case $::osfamily ? {
-    RedHat: {
+  case $::osfamily {
+    'RedHat': {
       if !defined( Package[ 'iscsi-initiator-utils' ] ) {
         package { 'iscsi-initiator-utils':
           ensure => present,
